@@ -1,0 +1,1866 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BBCsafe - Sistem Informasi K3LH Pertambangan Batubara</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        mining: {
+                            dark: '#0F172A',
+                            card: '#1E293B',
+                            border: '#334155',
+                            accent: '#F59E0B',
+                            green: '#10B981',
+                            red: '#EF4444',
+                            blue: '#3B82F6'
+                        }
+                    }
+                }
+            }
+        };
+    </script>
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0B0F17;
+            color: #F1F5F9;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0F172A;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col md:flex-row overflow-x-hidden">
+
+    <!-- GLOBAL HANDLERS -->
+    <script>
+        window.switchTab = function(tabId) {
+            var contents = document.querySelectorAll('.tab-content');
+            for (var i = 0; i < contents.length; i++) {
+                contents[i].classList.add('hidden');
+            }
+            var targetTab = document.getElementById('tab-' + tabId);
+            if (targetTab) targetTab.classList.remove('hidden');
+
+            var navItems = document.querySelectorAll('.nav-item');
+            for (var j = 0; j < navItems.length; j++) {
+                navItems[j].className = 'nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors text-slate-400 hover:text-slate-100 hover:bg-slate-800/60';
+            }
+
+            var activeBtn = document.getElementById('nav-' + tabId);
+            if (activeBtn) {
+                activeBtn.className = 'nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-bold transition-colors bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20';
+            }
+
+            var titles = {
+                dashboard: 'Dashboard Operational K3LH & Rangkuman Sistem',
+                hazard: 'Lapor Bahaya (PEKA)',
+                inspection: 'Inspeksi Area Kerja & K3LH',
+                commissioning: 'Komisioning Unit & Alat',
+                performance: 'Safety Performance & Statistik Kecelakaan',
+                documents: 'Vault Dokumen JSA & SOP',
+                simper: 'Manajemen SIMPER & Sertifikasi Operator',
+                competency: 'Kompetensi & Sertifikasi Karyawan',
+                environment: 'Pemantauan Air Asam Tambang (AAT) - pH, TSS, Fe & Mn',
+                b3waste: 'Log Rekapitulasi Keluar Masuk Limbah B3',
+                incidents: 'Register Investigasi Kecelakaan & CAPA',
+                safetalks: 'Pelaksanaan Safety (P5M, Safety Talk & Meeting)',
+                manpower: 'Manajemen Manpower & Jam Kerja Aman (Man-Hours)'
+            };
+
+            var pageTitle = document.getElementById('page-title');
+            if (pageTitle) {
+                pageTitle.innerHTML = '<i data-lucide="shield" class="w-5 h-5 text-amber-500"></i> ' + (titles[tabId] || 'BBCsafe');
+            }
+
+            if (window.lucide) window.lucide.createIcons();
+            if (typeof window.refreshAllViews === 'function') window.refreshAllViews();
+        };
+
+        window.openModal = function(id) {
+            var modal = document.getElementById(id);
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.style.display = 'flex';
+            }
+        };
+
+        window.closeModal = function(id) {
+            var modal = document.getElementById(id);
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.style.display = 'none';
+            }
+        };
+
+        window.showToast = function(message, type) {
+            type = type || 'success';
+            var container = document.getElementById('toast-container');
+            if (!container) return;
+
+            var toast = document.createElement('div');
+            var bgClass = type === 'success' ? 'bg-emerald-500 text-slate-950' : 'bg-rose-500 text-white';
+            toast.className = bgClass + ' font-bold text-xs px-4 py-3 rounded-xl shadow-xl flex items-center space-x-2 transition-all transform translate-y-2 pointer-events-auto';
+            toast.innerHTML = '<i data-lucide="info" class="w-4 h-4"></i><span>' + message + '</span>';
+            container.appendChild(toast);
+
+            if (window.lucide) window.lucide.createIcons();
+
+            setTimeout(function() {
+                toast.classList.add('opacity-0', 'translate-y-4');
+                setTimeout(function() { toast.remove(); }, 300);
+            }, 3000);
+        };
+    </script>
+
+    <!-- SIDEBAR NAVIGATION -->
+    <aside id="sidebar" class="w-full md:w-64 bg-slate-900 border-r border-slate-800 flex flex-col justify-between shrink-0 transition-all duration-300 z-30">
+        <div>
+            <!-- LOGO / BRANDING -->
+            <div class="p-5 border-b border-slate-800 flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-500">
+                        <i data-lucide="hard-hat" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-extrabold text-lg text-white tracking-wide">BBC<span class="text-amber-500">safe</span></h1>
+                        <p class="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">K3LH Pertambangan</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- NAVIGATION ITEMS -->
+            <nav class="p-3 space-y-1.5" id="nav-container">
+                <button onclick="window.switchTab('dashboard')" id="nav-dashboard" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-bold transition-colors bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20">
+                    <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+                    <span>Dashboard K3LH</span>
+                </button>
+
+                <button onclick="window.switchTab('hazard')" id="nav-hazard" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors text-slate-400 hover:text-slate-100 hover:bg-slate-800/60">
+                    <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+                    <span class="flex-1 text-left">Lapor Bahaya</span>
+                    <span id="badge-hazard-count" class="px-2 py-0.5 text-xs rounded-full bg-amber-500/20 text-amber-400 font-semibold">0</span>
+                </button>
+
+                <button onclick="window.switchTab('inspection')" id="nav-inspection" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors text-slate-400 hover:text-slate-100 hover:bg-slate-800/60">
+                    <i data-lucide="clipboard-check" class="w-5 h-5"></i>
+                    <span>Inspeksi</span>
+                </button>
+
+                <button onclick="window.switchTab('commissioning')" id="nav-commissioning" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors text-slate-400 hover:text-slate-100 hover:bg-slate-800/60">
+                    <i data-lucide="check-square" class="w-5 h-5"></i>
+                    <span>Komisioning Unit</span>
+                </button>
+
+                <button onclick="window.switchTab('performance')" id="nav-performance" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors text-slate-400 hover:text-slate-100 hover:bg-slate-800/60">
+                    <i data-lucide="bar-chart-2" class="w-5 h-5"></i>
+                    <span>Safety Performance</span>
+                </button>
+
+                <button onclick="window.switchTab('documents')" id="nav-documents" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors text-slate-400 hover:text-slate-100 hover:bg-slate-800/60">
+                    <i data-lucide="folder-git-2" class="w-5 h-5"></i>
+                    <span>Vault Dokumen & JSA</span>
+                </button>
+
+                <button onclick="window.switchTab('simper')" id="nav-simper" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors text-slate-400 hover:text-slate-100 hover:bg-slate-800/60">
+                    <i data-lucide="id-card" class="w-5 h-5"></i>
+                    <span>SIMPER & Izin Kerja</span>
+                </button>
+
+                <button onclick="window.switchTab('competency')" id="nav-competency" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors text-slate-400 hover:text-slate-100 hover:bg-slate-800/60">
+                    <i data-lucide="award" class="w-5 h-5"></i>
+                    <span>Kompetensi Karyawan</span>
+                </button>
+
+                <button onclick="window.switchTab('environment')" id="nav-environment" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors text-slate-400 hover:text-slate-100 hover:bg-slate-800/60">
+                    <i data-lucide="droplets" class="w-5 h-5"></i>
+                    <span>AAT & Lingkungan</span>
+                </button>
+
+                <button onclick="window.switchTab('b3waste')" id="nav-b3waste" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors text-slate-400 hover:text-slate-100 hover:bg-slate-800/60">
+                    <i data-lucide="biohazard" class="w-5 h-5"></i>
+                    <span>Log Limbah B3</span>
+                </button>
+
+                <button onclick="window.switchTab('incidents')" id="nav-incidents" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors text-slate-400 hover:text-slate-100 hover:bg-slate-800/60">
+                    <i data-lucide="shield-alert" class="w-5 h-5"></i>
+                    <span>Investigasi & CAPA</span>
+                </button>
+
+                <button onclick="window.switchTab('safetalks')" id="nav-safetalks" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors text-slate-400 hover:text-slate-100 hover:bg-slate-800/60">
+                    <i data-lucide="megaphone" class="w-5 h-5"></i>
+                    <span class="flex-1 text-left">Pelaksanaan Safety</span>
+                    <span id="badge-safetalk-count" class="px-2 py-0.5 text-xs rounded-full bg-amber-500/20 text-amber-400 font-semibold">0</span>
+                </button>
+
+                <button onclick="window.switchTab('manpower')" id="nav-manpower" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors text-slate-400 hover:text-slate-100 hover:bg-slate-800/60">
+                    <i data-lucide="users" class="w-5 h-5"></i>
+                    <span>Manpower & Jam Kerja</span>
+                </button>
+            </nav>
+        </div>
+
+        <!-- CONNECTION STATUS & BACKUP -->
+        <div class="p-4 border-t border-slate-800 space-y-3">
+            <div class="flex items-center justify-between text-xs text-slate-400 px-1">
+                <span class="flex items-center space-x-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+                    <span>Online Database</span>
+                </span>
+                <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-400">Guest</span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 pt-1">
+                <button onclick="window.exportDashboardBackup()" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-amber-400 rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition-all border border-slate-700 shadow">
+                    <i data-lucide="download-cloud" class="w-3.5 h-3.5"></i>
+                    <span>Download</span>
+                </button>
+                <button onclick="document.getElementById('sidebar-file-upload-input').click()" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition-all border border-slate-700 shadow">
+                    <i data-lucide="upload-cloud" class="w-3.5 h-3.5"></i>
+                    <span>Upload</span>
+                </button>
+                <input type="file" id="sidebar-file-upload-input" accept=".json,.csv" onchange="window.importDashboardBackup(event)" class="hidden">
+            </div>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT AREA -->
+    <main class="flex-1 flex flex-col min-w-0 bg-slate-950 overflow-y-auto">
+        
+        <!-- HEADER TOPBAR -->
+        <header class="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-6 py-4 sticky top-0 z-20 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+                <h2 id="page-title" class="text-xl font-bold text-white flex items-center gap-2">
+                    <i data-lucide="shield" class="w-5 h-5 text-amber-500"></i>
+                    Dashboard Operational K3LH & Rangkuman Sistem
+                </h2>
+                <p id="page-subtitle" class="text-xs text-slate-400 mt-0.5">Rangkuman Keseluruhan Modul Sistem Informasi Kesehatan, Keselamatan Kerja & Lingkungan Hidup</p>
+            </div>
+
+            <!-- QUICK ACTION BUTTONS -->
+            <div class="flex items-center space-x-3">
+                <button onclick="window.openModal('modal-peka')" class="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-sm flex items-center space-x-2 shadow-lg shadow-amber-500/20 transition-all">
+                    <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                    <span>+ Lapor Bahaya</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- DYNAMIC CONTENT CONTAINER -->
+        <div class="p-6 space-y-6">
+
+            <!-- TAB 1: DASHBOARD & COMPREHENSIVE SUMMARY -->
+            <div id="tab-dashboard" class="tab-content space-y-6">
+                <!-- KPI METRICS GRID -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-2xl">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-xs text-slate-400 font-medium">Total Jam Kerja Aman (Man-Hours)</p>
+                                <h3 id="dash-stat-manhours" class="text-2xl font-black text-amber-400 mt-1">3,850,000 Jam</h3>
+                                <p class="text-[10px] text-slate-500 mt-0.5">*Input Manual / Dari Manpower</p>
+                            </div>
+                            <div class="p-2.5 bg-amber-500/10 text-amber-400 rounded-xl"><i data-lucide="clock" class="w-5 h-5"></i></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-2xl">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-xs text-slate-400 font-medium">Total Laporan Bahaya</p>
+                                <h3 id="dash-stat-hazards" class="text-2xl font-black text-rose-400 mt-1">0</h3>
+                            </div>
+                            <div class="p-2.5 bg-rose-500/10 text-rose-400 rounded-xl"><i data-lucide="alert-triangle" class="w-5 h-5"></i></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-2xl">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-xs text-slate-400 font-medium">Inspeksi Selesai</p>
+                                <h3 id="dash-stat-inspections" class="text-2xl font-black text-sky-400 mt-1">0</h3>
+                            </div>
+                            <div class="p-2.5 bg-sky-500/10 text-sky-400 rounded-xl"><i data-lucide="clipboard-check" class="w-5 h-5"></i></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-2xl">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-xs text-slate-400 font-medium">Dokumen & JSA Tersimpan</p>
+                                <h3 id="dash-stat-docs" class="text-2xl font-black text-emerald-400 mt-1">0</h3>
+                            </div>
+                            <div class="p-2.5 bg-emerald-500/10 text-emerald-400 rounded-xl"><i data-lucide="folder-git-2" class="w-5 h-5"></i></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CHARTS ROW -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl">
+                        <h3 class="font-bold text-slate-100 flex items-center gap-2 mb-1">
+                            <i data-lucide="line-chart" class="w-4 h-4 text-amber-500"></i>
+                            Statistik Laporan Bahaya & Insiden (Live Trend)
+                        </h3>
+                        <p class="text-xs text-slate-400 mb-4">Agregat bulanan dari total tiket Lapor Bahaya (PEKA) & Investigasi Insiden.</p>
+                        <div class="h-64 relative">
+                            <canvas id="chart-dashboard-trend"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl">
+                        <h3 class="font-bold text-slate-100 flex items-center gap-2 mb-1">
+                            <i data-lucide="biohazard" class="w-4 h-4 text-rose-400"></i>
+                            Log Limbah B3 (Rekapitulasi Berat per Jenis B3)
+                        </h3>
+                        <p class="text-xs text-slate-400 mb-4">Akumulasi berat limbah B3 (Kg) dari transaksi log B3.</p>
+                        <div class="h-64 relative flex items-center justify-center">
+                            <canvas id="chart-dashboard-category"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ALL MODULES SUMMARY CARDS & QUICK TABLES -->
+                <div class="space-y-6 pt-4">
+                    <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                        <i data-lucide="layers" class="w-5 h-5 text-amber-500"></i>
+                        Rangkuman Seluruh Modul Sidebar
+                    </h3>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl space-y-3">
+                            <div class="flex justify-between items-center">
+                                <h4 class="font-bold text-sm text-amber-400 flex items-center gap-2"><i data-lucide="alert-triangle" class="w-4 h-4"></i> Lapor Bahaya</h4>
+                                <button onclick="window.switchTab('hazard')" class="text-xs text-slate-400 hover:text-white underline">Lihat Semua</button>
+                            </div>
+                            <div id="summary-hazard-list" class="space-y-2 text-xs text-slate-300 max-h-40 overflow-y-auto"></div>
+                        </div>
+
+                        <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl space-y-3">
+                            <div class="flex justify-between items-center">
+                                <h4 class="font-bold text-sm text-sky-400 flex items-center gap-2"><i data-lucide="clipboard-check" class="w-4 h-4"></i> Inspeksi Area</h4>
+                                <button onclick="window.switchTab('inspection')" class="text-xs text-slate-400 hover:text-white underline">Lihat Semua</button>
+                            </div>
+                            <div id="summary-inspection-list" class="space-y-2 text-xs text-slate-300 max-h-40 overflow-y-auto"></div>
+                        </div>
+
+                        <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl space-y-3">
+                            <div class="flex justify-between items-center">
+                                <h4 class="font-bold text-sm text-teal-400 flex items-center gap-2"><i data-lucide="check-square" class="w-4 h-4"></i> Komisioning Unit</h4>
+                                <button onclick="window.switchTab('commissioning')" class="text-xs text-slate-400 hover:text-white underline">Lihat Semua</button>
+                            </div>
+                            <div id="summary-commissioning-list" class="space-y-2 text-xs text-slate-300 max-h-40 overflow-y-auto"></div>
+                        </div>
+
+                        <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl space-y-3">
+                            <div class="flex justify-between items-center">
+                                <h4 class="font-bold text-sm text-emerald-400 flex items-center gap-2"><i data-lucide="folder-git-2" class="w-4 h-4"></i> Vault JSA & SOP</h4>
+                                <button onclick="window.switchTab('documents')" class="text-xs text-slate-400 hover:text-white underline">Lihat Semua</button>
+                            </div>
+                            <div id="summary-document-list" class="space-y-2 text-xs text-slate-300 max-h-40 overflow-y-auto"></div>
+                        </div>
+
+                        <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl space-y-3">
+                            <div class="flex justify-between items-center">
+                                <h4 class="font-bold text-sm text-purple-400 flex items-center gap-2"><i data-lucide="id-card" class="w-4 h-4"></i> SIMPER Operator</h4>
+                                <button onclick="window.switchTab('simper')" class="text-xs text-slate-400 hover:text-white underline">Lihat Semua</button>
+                            </div>
+                            <div id="summary-simper-list" class="space-y-2 text-xs text-slate-300 max-h-40 overflow-y-auto"></div>
+                        </div>
+
+                        <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl space-y-3">
+                            <div class="flex justify-between items-center">
+                                <h4 class="font-bold text-sm text-amber-300 flex items-center gap-2"><i data-lucide="award" class="w-4 h-4"></i> Kompetensi Karyawan</h4>
+                                <button onclick="window.switchTab('competency')" class="text-xs text-slate-400 hover:text-white underline">Lihat Semua</button>
+                            </div>
+                            <div id="summary-competency-list" class="space-y-2 text-xs text-slate-300 max-h-40 overflow-y-auto"></div>
+                        </div>
+
+                        <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl space-y-3">
+                            <div class="flex justify-between items-center">
+                                <h4 class="font-bold text-sm text-teal-400 flex items-center gap-2"><i data-lucide="droplets" class="w-4 h-4"></i> AAT & Lingkungan</h4>
+                                <button onclick="window.switchTab('environment')" class="text-xs text-slate-400 hover:text-white underline">Lihat Semua</button>
+                            </div>
+                            <div id="summary-environment-list" class="space-y-2 text-xs text-slate-300 max-h-40 overflow-y-auto"></div>
+                        </div>
+
+                        <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl space-y-3">
+                            <div class="flex justify-between items-center">
+                                <h4 class="font-bold text-sm text-rose-400 flex items-center gap-2"><i data-lucide="biohazard" class="w-4 h-4"></i> Log Limbah B3</h4>
+                                <button onclick="window.switchTab('b3waste')" class="text-xs text-slate-400 hover:text-white underline">Lihat Semua</button>
+                            </div>
+                            <div id="summary-b3-list" class="space-y-2 text-xs text-slate-300 max-h-40 overflow-y-auto"></div>
+                        </div>
+
+                        <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl space-y-3">
+                            <div class="flex justify-between items-center">
+                                <h4 class="font-bold text-sm text-red-400 flex items-center gap-2"><i data-lucide="shield-alert" class="w-4 h-4"></i> Investigasi & CAPA</h4>
+                                <button onclick="window.switchTab('incidents')" class="text-xs text-slate-400 hover:text-white underline">Lihat Semua</button>
+                            </div>
+                            <div id="summary-incident-list" class="space-y-2 text-xs text-slate-300 max-h-40 overflow-y-auto"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: PELAPORAN BAHAYA -->
+            <div id="tab-hazard" class="tab-content space-y-6 hidden">
+                <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-2xl flex items-center justify-between">
+                    <h3 class="font-bold text-white text-base">Daftar Lapor Bahaya (PEKA)</h3>
+                    <button onclick="window.openModal('modal-peka')" class="px-4 py-2 bg-amber-500 text-slate-950 font-bold rounded-xl text-xs">+ Lapor Bahaya Baru</button>
+                </div>
+                <div class="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-slate-800 text-slate-400 uppercase text-[11px] font-bold">
+                                <tr>
+                                    <th class="p-4">No. Tiket & Tanggal</th>
+                                    <th class="p-4">Pelapor</th>
+                                    <th class="p-4">Lokasi</th>
+                                    <th class="p-4">Deskripsi</th>
+                                    <th class="p-4">Risiko</th>
+                                    <th class="p-4">Status</th>
+                                    <th class="p-4 text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="hazard-table-body" class="divide-y divide-slate-800 text-slate-300"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: INSPEKSI AREA KERJA -->
+            <div id="tab-inspection" class="tab-content space-y-6 hidden">
+                <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-2xl flex items-center justify-between">
+                    <h3 class="font-bold text-white text-base">Log Inspeksi Area Kerja</h3>
+                    <button onclick="window.openModal('modal-p2h')" class="px-4 py-2 bg-emerald-500 text-slate-950 font-bold rounded-xl text-xs">+ Tambah Inspeksi</button>
+                </div>
+                <div class="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden p-4">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-800 text-slate-400 uppercase text-[11px] font-bold">
+                            <tr>
+                                <th class="p-3">Tanggal</th>
+                                <th class="p-3">Area Unit</th>
+                                <th class="p-3">Inspektur</th>
+                                <th class="p-3">Skor Pass</th>
+                                <th class="p-3">Keterangan</th>
+                                <th class="p-3 text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="p2h-history-table-body" class="divide-y divide-slate-800 text-slate-300"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB: KOMISIONING UNIT -->
+            <div id="tab-commissioning" class="tab-content space-y-6 hidden">
+                <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-2xl flex items-center justify-between">
+                    <h3 class="font-bold text-white text-base">Komisioning Unit & Alat</h3>
+                    <button onclick="window.openModal('modal-commissioning-add')" class="px-4 py-2 bg-amber-500 text-slate-950 font-bold rounded-xl text-xs">+ Ajukan Komisioning</button>
+                </div>
+                <div class="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden p-4">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-800 text-slate-400 uppercase text-[11px] font-bold">
+                            <tr>
+                                <th class="p-3">No. Unit & SN</th>
+                                <th class="p-3">Kategori</th>
+                                <th class="p-3">Pemilik</th>
+                                <th class="p-3">Temuan / Catatan</th>
+                                <th class="p-3">Status</th>
+                                <th class="p-3 text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="commissioning-table-body" class="divide-y divide-slate-800 text-slate-300"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB: SAFETY PERFORMANCE -->
+            <div id="tab-performance" class="tab-content space-y-6 hidden">
+                <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-2xl flex items-center justify-between">
+                    <h3 class="font-bold text-white text-base">Safety Performance & Indikator Investigasi & CAPA</h3>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl">
+                        <p class="text-xs text-slate-400 font-medium">Fatality</p>
+                        <h3 id="perf-fatality" class="text-2xl font-black text-rose-500 mt-1">0</h3>
+                    </div>
+                    <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl">
+                        <p class="text-xs text-slate-400 font-medium">Lost Time Injury (LTI)</p>
+                        <h3 id="perf-lti" class="text-2xl font-black text-rose-400 mt-1">0</h3>
+                    </div>
+                    <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl">
+                        <p class="text-xs text-slate-400 font-medium">Medical Treatment (MTI)</p>
+                        <h3 id="perf-mti" class="text-2xl font-black text-amber-400 mt-1">0</h3>
+                    </div>
+                    <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl">
+                        <p class="text-xs text-slate-400 font-medium">First Aid Case (FAC)</p>
+                        <h3 id="perf-fac" class="text-2xl font-black text-sky-400 mt-1">0</h3>
+                    </div>
+                    <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl col-span-2 md:col-span-1">
+                        <p class="text-xs text-slate-400 font-medium">Property Damage</p>
+                        <h3 id="perf-prop" class="text-2xl font-black text-emerald-400 mt-1">0</h3>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl space-y-4">
+                    <h4 class="font-bold text-white text-sm">Statistik & Indikator Pelaksanaan Safety per Aktivitas</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="perf-safetalk-stats"></div>
+                </div>
+            </div>
+
+            <!-- TAB 4: VAULT DOKUMEN -->
+            <div id="tab-documents" class="tab-content space-y-6 hidden">
+                <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-2xl flex items-center justify-between">
+                    <h3 class="font-bold text-white text-base">Vault Dokumen JSA, SOP & Direktori</h3>
+                    <button onclick="window.openModal('modal-doc-upload')" class="px-4 py-2 bg-amber-500 text-slate-950 font-bold rounded-xl text-xs">+ Upload Dokumen & Direktori</button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5" id="document-cards-container"></div>
+            </div>
+
+            <!-- TAB 5: SIMPER -->
+            <div id="tab-simper" class="tab-content space-y-6 hidden">
+                <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-2xl flex items-center justify-between">
+                    <h3 class="font-bold text-white text-base">Manajemen SIMPER Operator</h3>
+                    <button onclick="window.openModal('modal-simper-add')" class="px-4 py-2 bg-amber-500 text-slate-950 font-bold rounded-xl text-xs">+ Registrasi SIMPER</button>
+                </div>
+                <div class="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden p-4">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-800 text-slate-400 uppercase text-[11px] font-bold">
+                            <tr>
+                                <th class="p-3">Nama & NIK</th>
+                                <th class="p-3">Dept</th>
+                                <th class="p-3">Tipe SIMPER</th>
+                                <th class="p-3">Expiry</th>
+                                <th class="p-3 text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="simper-table-body" class="divide-y divide-slate-800 text-slate-300"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB 6: KOMPETENSI -->
+            <div id="tab-competency" class="tab-content space-y-6 hidden">
+                <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-2xl flex items-center justify-between">
+                    <h3 class="font-bold text-white text-base">Kompetensi & Sertifikasi Karyawan</h3>
+                    <button onclick="window.openModal('modal-competency-add')" class="px-4 py-2 bg-amber-500 text-slate-950 font-bold rounded-xl text-xs">+ Tambah Sertifikat</button>
+                </div>
+                <div class="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden p-4">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-800 text-slate-400 uppercase text-[11px] font-bold">
+                            <tr>
+                                <th class="p-3">Nama & NIK</th>
+                                <th class="p-3">No. Sertifikat</th>
+                                <th class="p-3">Sertifikasi</th>
+                                <th class="p-3">Penerbit</th>
+                                <th class="p-3">Expiry</th>
+                                <th class="p-3 text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="competency-table-body" class="divide-y divide-slate-800 text-slate-300"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB 7: LINGKUNGAN (AAT) -->
+            <div id="tab-environment" class="tab-content space-y-6 hidden">
+                <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-2xl flex items-center justify-between">
+                    <h3 class="font-bold text-white text-base">Pemantauan Air Asam Tambang (AAT) - pH, TSS, Fe & Mn</h3>
+                    <button onclick="window.openModal('modal-env-input')" class="px-4 py-2 bg-sky-500 text-slate-950 font-bold rounded-xl text-xs">+ Input Sample Air</button>
+                </div>
+                <div class="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden p-4">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-800 text-slate-400 uppercase text-[11px] font-bold">
+                            <tr>
+                                <th class="p-3">Titik Outlet</th>
+                                <th class="p-3">pH</th>
+                                <th class="p-3">TSS (mg/L)</th>
+                                <th class="p-3">Fe (mg/L)</th>
+                                <th class="p-3">Mn (mg/L)</th>
+                                <th class="p-3">Status</th>
+                                <th class="p-3 text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="env-water-table-body" class="divide-y divide-slate-800 text-slate-300"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB 9: LIMBAH B3 -->
+            <div id="tab-b3waste" class="tab-content space-y-6 hidden">
+                <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-2xl flex items-center justify-between">
+                    <h3 class="font-bold text-white text-base">Log Rekapitulasi Keluar Masuk Limbah B3</h3>
+                    <button onclick="window.openModal('modal-b3-add')" class="px-4 py-2 bg-amber-500 text-slate-950 font-bold rounded-xl text-xs">+ Input Transaksi B3</button>
+                </div>
+                <div class="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden p-4">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-800 text-slate-400 uppercase text-[11px] font-bold">
+                            <tr>
+                                <th class="p-3">Jenis B3</th>
+                                <th class="p-3">Sumber</th>
+                                <th class="p-3">Alur</th>
+                                <th class="p-3">Berat (Kg)</th>
+                                <th class="p-3 text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="b3-table-body" class="divide-y divide-slate-800 text-slate-300"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB 10: INVESTIGASI -->
+            <div id="tab-incidents" class="tab-content space-y-6 hidden">
+                <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-2xl flex items-center justify-between">
+                    <h3 class="font-bold text-white text-base">Register Investigasi Kecelakaan & CAPA</h3>
+                    <button onclick="window.openModal('modal-incident-add')" class="px-4 py-2 bg-rose-500 text-slate-950 font-bold rounded-xl text-xs">+ Lapor Insiden</button>
+                </div>
+                <div class="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden p-4">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-800 text-slate-400 uppercase text-[11px] font-bold">
+                            <tr>
+                                <th class="p-3">Lokasi</th>
+                                <th class="p-3">Severity</th>
+                                <th class="p-3">Ringkasan</th>
+                                <th class="p-3 text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="incident-table-body" class="divide-y divide-slate-800 text-slate-300"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB 11: PELAKSANAAN SAFETY (SAFETALKS) -->
+            <div id="tab-safetalks" class="tab-content space-y-6 hidden">
+                <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-2xl flex items-center justify-between">
+                    <h3 class="font-bold text-white text-base">Pelaksanaan Safety (P5M, Safety Talk & Meeting)</h3>
+                    <button onclick="window.openModal('modal-safetalk-add')" class="px-4 py-2 bg-amber-500 text-slate-950 font-bold rounded-xl text-xs">+ Catat Kegiatan Safety</button>
+                </div>
+                
+                <!-- STATS CARD -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-2xl">
+                        <p class="text-xs text-slate-400">Total Sesi Kegiatan</p>
+                        <h3 id="stat-st-total" class="text-2xl font-black text-amber-400 mt-1">0</h3>
+                    </div>
+                    <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-2xl">
+                        <p class="text-xs text-slate-400">Total Peserta Hadir</p>
+                        <h3 id="stat-st-attendees" class="text-2xl font-black text-emerald-400 mt-1">0</h3>
+                    </div>
+                    <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-2xl">
+                        <p class="text-xs text-slate-400">Rata-rata Peserta / Sesi</p>
+                        <h3 id="stat-st-average" class="text-2xl font-black text-sky-400 mt-1">0</h3>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden p-4">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-800 text-slate-400 uppercase text-[11px] font-bold">
+                            <tr>
+                                <th class="p-3">Tanggal</th>
+                                <th class="p-3">Jenis Kegiatan</th>
+                                <th class="p-3">Topik Pembahasan</th>
+                                <th class="p-3">Pemimpin</th>
+                                <th class="p-3">Peserta</th>
+                                <th class="p-3 text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="safetalk-table-body" class="divide-y divide-slate-800 text-slate-300"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB 12: MANPOWER -->
+            <div id="tab-manpower" class="tab-content space-y-6 hidden">
+                <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-2xl flex items-center justify-between">
+                    <h3 class="font-bold text-white text-base">Manajemen Manpower & Jam Kerja Aman</h3>
+                    <button onclick="window.openModal('modal-manpower-add')" class="px-4 py-2 bg-amber-500 text-slate-950 font-bold rounded-xl text-xs">+ Input Jam Kerja Manual</button>
+                </div>
+                <div class="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden p-4">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-800 text-slate-400 uppercase text-[11px] font-bold">
+                            <tr>
+                                <th class="p-3">Tanggal</th>
+                                <th class="p-3">Keterangan / Periode</th>
+                                <th class="p-3">Total Jam Kerja Aman (Man-Hours)</th>
+                                <th class="p-3 text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="manpower-table-body" class="divide-y divide-slate-800 text-slate-300"></tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- MODALS -->
+    <!-- MODAL PEKA -->
+    <div id="modal-peka" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-2xl p-6 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="font-bold text-lg text-white" id="modal-peka-title">Lapor Bahaya</h3>
+                <button type="button" onclick="window.closeModal('modal-peka')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <form id="form-hazard-submit" onsubmit="handleHazardSubmit(event)" class="space-y-4">
+                <input type="hidden" id="hazard-edit-id">
+                <input type="text" id="hazard-reporter" placeholder="Nama Pelapor" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                <input type="text" id="hazard-location" placeholder="Lokasi" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                <textarea id="hazard-desc" rows="3" placeholder="Deskripsi Bahaya" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200"></textarea>
+                <div class="flex justify-end space-x-3 pt-3 border-t border-slate-800">
+                    <button type="button" onclick="window.closeModal('modal-peka')" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl text-xs">Batal</button>
+                    <button type="submit" class="px-5 py-2 bg-amber-500 text-slate-950 font-bold rounded-xl text-xs">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL P2H -->
+    <div id="modal-p2h" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-2xl p-6 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="font-bold text-lg text-white" id="modal-p2h-title">Tambah Inspeksi Area Kerja</h3>
+                <button type="button" onclick="window.closeModal('modal-p2h')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <form id="form-p2h-submit" onsubmit="handleP2HSubmit(event)" class="space-y-4">
+                <input type="hidden" id="p2h-edit-id">
+                <input type="text" id="p2h-unit" placeholder="Area / Unit" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                <input type="text" id="p2h-operator" placeholder="Nama Inspektur / Operator" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                <input type="number" id="p2h-score" placeholder="Skor Pass (%) Cth: 95" required min="0" max="100" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                <input type="text" id="p2h-notes" placeholder="Keterangan / Temuan Inspeksi" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                <div class="flex justify-end space-x-3 pt-3 border-t border-slate-800">
+                    <button type="button" onclick="window.closeModal('modal-p2h')" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl text-xs">Batal</button>
+                    <button type="submit" class="px-5 py-2 bg-emerald-500 text-slate-950 font-bold rounded-xl text-xs">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL COMMISSIONING -->
+    <div id="modal-commissioning-add" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-2xl p-6 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="font-bold text-lg text-white" id="modal-comm-title">Komisioning Unit & Alat</h3>
+                <button type="button" onclick="window.closeModal('modal-commissioning-add')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <form id="form-commissioning-submit" onsubmit="handleCommissioningSubmit(event)" class="space-y-4">
+                <input type="hidden" id="comm-edit-id">
+                <input type="text" id="comm-unit" placeholder="No. Unit / Lambung" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                <input type="text" id="comm-serial" placeholder="Nomor Seri / SN" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                <input type="text" id="comm-owner" placeholder="Pemilik / Kontraktor" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                <input type="text" id="comm-findings" placeholder="Temuan / Catatan Komisioning" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                <div>
+                    <label class="block text-[11px] text-slate-400 mb-1">Status Komisioning</label>
+                    <select id="comm-status" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                        <option value="Lulus">Lulus</option>
+                        <option value="Tidak Lulus">Tidak Lulus</option>
+                        <option value="Open">Open</option>
+                        <option value="Closed">Closed</option>
+                    </select>
+                </div>
+                <div class="flex justify-end space-x-3 pt-3 border-t border-slate-800">
+                    <button type="button" onclick="window.closeModal('modal-commissioning-add')" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl text-xs">Batal</button>
+                    <button type="submit" class="px-5 py-2 bg-amber-500 text-slate-950 font-bold rounded-xl text-xs">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL DOC UPLOAD -->
+    <div id="modal-doc-upload" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-2xl p-6 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="font-bold text-lg text-white">Upload Dokumen & Tambah Direktori</h3>
+                <button type="button" onclick="window.closeModal('modal-doc-upload')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <form id="form-doc-submit" onsubmit="handleDocSubmit(event)" class="space-y-4">
+                <input type="text" id="doc-title" placeholder="Judul Dokumen / Nama Direktori" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                <select id="doc-category" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                    <option value="Direktori">Direktori Folder K3LH</option>
+                    <option value="JSA">JSA (Job Safety Analysis)</option>
+                    <option value="SOP">SOP Operasional</option>
+                    <option value="IK">Instruksi Kerja (IK)</option>
+                </select>
+                <input type="file" id="doc-file" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-400">
+                <div class="flex justify-end space-x-3 pt-3 border-t border-slate-800">
+                    <button type="button" onclick="window.closeModal('modal-doc-upload')" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl text-xs">Batal</button>
+                    <button type="submit" class="px-5 py-2 bg-amber-500 text-slate-950 font-bold rounded-xl text-xs">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL SIMPER ADD -->
+    <div id="modal-simper-add" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-2xl p-6 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="font-bold text-lg text-white" id="modal-simper-title">Registrasi SIMPER Operator</h3>
+                <button type="button" onclick="window.closeModal('modal-simper-add')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <form id="form-simper-submit" onsubmit="handleSimperSubmit(event)" class="space-y-4">
+                <input type="hidden" id="simper-edit-id">
+                <input type="text" id="simper-name" placeholder="Nama Operator" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                <input type="text" id="simper-nik" placeholder="NIK Operator" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                <input type="text" id="simper-dept" placeholder="Departemen / Kontraktor" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                <input type="text" id="simper-type" placeholder="Tipe SIMPER" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                <input type="date" id="simper-expiry" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                <div class="flex justify-end space-x-3 pt-3 border-t border-slate-800">
+                    <button type="button" onclick="window.closeModal('modal-simper-add')" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl text-xs">Batal</button>
+                    <button type="submit" class="px-5 py-2 bg-amber-500 text-slate-950 font-bold rounded-xl text-xs">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL COMPETENCY ADD -->
+    <div id="modal-competency-add" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-2xl p-6 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="font-bold text-lg text-white" id="modal-comp-title">Tambah Sertifikat Kompetensi Karyawan</h3>
+                <button type="button" onclick="window.closeModal('modal-competency-add')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <form id="form-competency-submit" onsubmit="handleCompetencySubmit(event)" class="space-y-4">
+                <input type="hidden" id="comp-edit-id">
+                <input type="text" id="comp-name" placeholder="Nama Karyawan" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                <input type="text" id="comp-nik" placeholder="NIK" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                <input type="text" id="comp-cert" placeholder="No. Sertifikat (Cth: CERT/POP/2026/001)" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                <input type="text" id="comp-category" placeholder="Jenis Sertifikasi" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                <input type="text" id="comp-issuer" placeholder="Lembaga Penerbit" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                <input type="date" id="comp-expiry" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                <div class="flex justify-end space-x-3 pt-3 border-t border-slate-800">
+                    <button type="button" onclick="window.closeModal('modal-competency-add')" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl text-xs">Batal</button>
+                    <button type="submit" class="px-5 py-2 bg-amber-500 text-slate-950 font-bold rounded-xl text-xs">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL ENVIRONMENT AAT ADD -->
+    <div id="modal-env-input" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-2xl p-6 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="font-bold text-lg text-white" id="modal-env-title">Input Sample Air Asam Tambang (AAT)</h3>
+                <button type="button" onclick="window.closeModal('modal-env-input')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <form id="form-env-submit" onsubmit="handleEnvironmentSubmit(event)" class="space-y-4">
+                <input type="hidden" id="env-edit-id">
+                <input type="text" id="env-pond" placeholder="Titik Outlet Settling Pond (Cth: SP-02)" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[11px] text-slate-400 mb-1">Nilai pH (6.0 - 9.0)</label>
+                        <input type="number" step="0.1" id="env-ph" placeholder="Cth: 7.2" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] text-slate-400 mb-1">TSS (mg/L)</label>
+                        <input type="number" step="0.1" id="env-tss" placeholder="Cth: 45" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[11px] text-slate-400 mb-1">Besi (Fe) mg/L max 7.0</label>
+                        <input type="number" step="0.01" id="env-fe" placeholder="Cth: 0.45" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] text-slate-400 mb-1">Mangan (Mn) mg/L max 4.0</label>
+                        <input type="number" step="0.01" id="env-mn" placeholder="Cth: 0.20" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-3 pt-3 border-t border-slate-800">
+                    <button type="button" onclick="window.closeModal('modal-env-input')" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl text-xs">Batal</button>
+                    <button type="submit" class="px-5 py-2 bg-sky-500 text-slate-950 font-bold rounded-xl text-xs">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL B3 ADD -->
+    <div id="modal-b3-add" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-2xl p-6 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="font-bold text-lg text-white" id="modal-b3-title">Input Transaksi Limbah B3</h3>
+                <button type="button" onclick="window.closeModal('modal-b3-add')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <form id="form-b3-submit" onsubmit="handleB3Submit(event)" class="space-y-4">
+                <input type="hidden" id="b3-edit-id">
+                <input type="text" id="b3-type" placeholder="Jenis Limbah B3" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                <input type="text" id="b3-source" placeholder="Sumber Penghasil" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                <select id="b3-flow" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                    <option value="Masuk TPS">Masuk TPS B3</option>
+                    <option value="Keluar Diangkut Pihak Ketiga">Keluar Diangkut Pihak Ketiga</option>
+                </select>
+                <input type="number" id="b3-weight" placeholder="Berat (Kg)" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                <div class="flex justify-end space-x-3 pt-3 border-t border-slate-800">
+                    <button type="button" onclick="window.closeModal('modal-b3-add')" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl text-xs">Batal</button>
+                    <button type="submit" class="px-5 py-2 bg-amber-500 text-slate-950 font-bold rounded-xl text-xs">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL INCIDENT ADD -->
+    <div id="modal-incident-add" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-2xl p-6 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="font-bold text-lg text-white" id="modal-incident-title">Lapor Insiden & Investigasi</h3>
+                <button type="button" onclick="window.closeModal('modal-incident-add')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <form id="form-incident-submit" onsubmit="handleIncidentSubmit(event)" class="space-y-4">
+                <input type="hidden" id="incident-edit-id">
+                <input type="text" id="inc-location" placeholder="Lokasi Kejadian" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                <select id="inc-severity" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                    <option value="Fatality">Fatality</option>
+                    <option value="LTI">Lost Time Injury (LTI)</option>
+                    <option value="MTI">Medical Treatment Injury (MTI)</option>
+                    <option value="FAC">First Aid Case (FAC)</option>
+                    <option value="Property Damage">Property Damage</option>
+                </select>
+                <textarea id="inc-summary" rows="3" placeholder="Ringkasan Kronologi Insiden" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200"></textarea>
+                <div class="flex justify-end space-x-3 pt-3 border-t border-slate-800">
+                    <button type="button" onclick="window.closeModal('modal-incident-add')" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl text-xs">Batal</button>
+                    <button type="submit" class="px-5 py-2 bg-rose-500 text-slate-950 font-bold rounded-xl text-xs">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL SAFETALK ADD -->
+    <div id="modal-safetalk-add" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-2xl p-6 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="font-bold text-lg text-white" id="modal-safetalk-title">Catat Pelaksanaan Safety (Talk / Meeting / P5M)</h3>
+                <button type="button" onclick="window.closeModal('modal-safetalk-add')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <form id="form-safetalk-submit" onsubmit="handleSafetalkSubmit(event)" class="space-y-4">
+                <input type="hidden" id="safetalk-edit-id">
+                <select id="st-type" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200" required>
+                    <option value="P5M (Pengawasan 5 Menit)">P5M (Pengawasan 5 Menit)</option>
+                    <option value="Safety Talk">Safety Talk</option>
+                    <option value="Safety Meeting Bulanan">Safety Meeting Bulanan</option>
+                </select>
+                <input type="date" id="st-date" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                <input type="text" id="st-topic" placeholder="Topik / Bahasan Utama" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                <input type="text" id="st-leader" placeholder="Pemimpin / Fasilitator" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                <input type="number" id="st-attendees" placeholder="Jumlah Peserta Hadir" required min="1" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                <div class="flex justify-end space-x-3 pt-3 border-t border-slate-800">
+                    <button type="button" onclick="window.closeModal('modal-safetalk-add')" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl text-xs">Batal</button>
+                    <button type="submit" class="px-5 py-2 bg-amber-500 text-slate-950 font-bold rounded-xl text-xs">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL MANPOWER ADD -->
+    <div id="modal-manpower-add" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-2xl p-6 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="font-bold text-lg text-white" id="modal-manpower-title">Input Manual Jam Kerja Aman (Man-Hours)</h3>
+                <button type="button" onclick="window.closeModal('modal-manpower-add')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <form id="form-manpower-submit" onsubmit="handleManpowerSubmit(event)" class="space-y-4">
+                <input type="hidden" id="manpower-edit-id">
+                <input type="date" id="mp-date" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                <input type="text" id="mp-desc" placeholder="Keterangan / Periode" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                <input type="number" id="mp-hours" placeholder="Total Jam Kerja Aman" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-slate-200">
+                <div class="flex justify-end space-x-3 pt-3 border-t border-slate-800">
+                    <button type="button" onclick="window.closeModal('modal-manpower-add')" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl text-xs">Batal</button>
+                    <button type="submit" class="px-5 py-2 bg-amber-500 text-slate-950 font-bold rounded-xl text-xs">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- TOAST CONTAINER -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 space-y-2 pointer-events-none"></div>
+
+    <!-- APPLICATION SCRIPTS -->
+    <script>
+        window.appState = {
+            hazards: [
+                { id: 'PEKA-101', reporter: 'Budi Santoso', date: '2026-06-01', location: 'Haul Road KM 12', desc: 'Genangan air menutupi bahu jalan tambang', risk: 'Medium', status: 'Open' }
+            ],
+            inspections: [
+                { id: 'INSP-201', unitId: 'DT-05', operator: 'Supriyadi', date: '2026-06-02', score: 95, notes: 'Kondisi rem dan lampu utama baik', status: 'Pass' }
+            ],
+            commissioning: [
+                { id: 'COMM-301', unitId: 'DT-08', serial: 'SN-998821', category: 'Heavy Equipment', owner: 'PAMA', findings: 'Semua instrumen dan APAR lengkap', status: 'Lulus' }
+            ],
+            documents: [
+                { id: 'DOC-401', title: 'JSA Blasting Area Barat', category: 'JSA', date: '2026-01-15', fileSize: '1.2 MB' },
+                { id: 'DOC-402', title: 'SOP Pengoperasian Dump Truck', category: 'SOP', date: '2026-02-10', fileSize: '2.4 MB' }
+            ],
+            simper: [
+                { id: 'SMP-501', name: 'Ahmad Yani', nik: 'NIK-0012', dept: 'Mining Operation', type: 'SIMPER Dump Truck 785', expiryDate: '2027-05-12' }
+            ],
+            competencies: [
+                { id: 'CMP-601', name: 'Slamet Riyadi', nik: 'NIK-0045', certNo: 'CERT/POP/2025/089', category: 'Sertifikat POP', issuer: 'ESDM', expiryDate: '2028-11-20' }
+            ],
+            safetalks: [
+                { id: 'ST-701', type: 'P5M (Pengawasan 5 Menit)', date: '2026-06-06', topic: 'Waspada Blind Spot saat Manuver Mundur', leader: 'Supriyadi', attendees: 24 },
+                { id: 'ST-702', type: 'Safety Talk', date: '2026-06-07', topic: 'Pemeriksaan P2H Sebelum Operasi Unit', leader: 'Budi Santoso', attendees: 45 }
+            ],
+            environment: [
+                { id: 'ENV-801', pond: 'Settling Pond SP-01', ph: 7.4, tss: 45, fe: 0.35, mn: 0.12, status: 'COMPLIANT' }
+            ],
+            b3waste: [
+                { id: 'B3-901', type: 'Aki Bekas', source: 'Plant Workshop', flow: 'Masuk TPS', weight: 150 }
+            ],
+            incidents: [
+                { id: 'INC-101', location: 'Pit Central', severity: 'Property Damage', summary: 'Bumper unit tersenggol tanggul', date: '2026-06-03' }
+            ],
+            manpower: [
+                { id: 'MPH-101', date: '2026-06-01', desc: 'Baseline YTD', totalHours: 3850000 }
+            ]
+        };
+
+        window.renderHazardTable = function() {
+            var body = document.getElementById('hazard-table-body');
+            var sumContainer = document.getElementById('summary-hazard-list');
+            var badge = document.getElementById('badge-hazard-count');
+            if (badge) badge.innerText = window.appState.hazards.length;
+
+            if (sumContainer) {
+                var sumHtml = '';
+                window.appState.hazards.slice(0, 3).forEach(function(h) {
+                    sumHtml += '<div class="p-2 bg-slate-950/40 rounded-lg flex justify-between items-center"><span class="truncate pr-2">' + h.location + '</span><span class="text-amber-400 font-bold shrink-0">' + h.risk + '</span></div>';
+                });
+                if (window.appState.hazards.length === 0) sumHtml = '<p class="text-slate-500">Belum ada data</p>';
+                sumContainer.innerHTML = sumHtml;
+            }
+
+            if (!body) return;
+            var html = '';
+            window.appState.hazards.forEach(function(item) {
+                html += '<tr class="hover:bg-slate-800/40">' +
+                    '<td class="p-4"><p class="font-bold text-amber-400 text-xs">' + item.id + '</p><p class="text-[10px] text-slate-400">' + item.date + '</p></td>' +
+                    '<td class="p-4 text-xs text-white font-semibold">' + item.reporter + '</td>' +
+                    '<td class="p-4 text-xs text-slate-300">' + item.location + '</td>' +
+                    '<td class="p-4 text-xs text-slate-200">' + item.desc + '</td>' +
+                    '<td class="p-4"><span class="px-2 py-1 text-xs rounded-full font-bold bg-amber-500/20 text-amber-400">' + item.risk + '</span></td>' +
+                    '<td class="p-4"><span class="px-2 py-1 text-xs rounded-full font-semibold bg-emerald-500/20 text-emerald-400">' + item.status + '</span></td>' +
+                    '<td class="p-4 text-center space-x-1">' +
+                        '<button type="button" onclick="editRecord(\'hazards\', \'' + item.id + '\')" class="p-1.5 bg-slate-800 text-amber-400 rounded-lg text-xs hover:bg-amber-500/20" title="Edit"><i data-lucide="edit-3" class="w-4 h-4"></i></button>' +
+                        '<button type="button" onclick="deleteRecord(\'hazards\', \'' + item.id + '\')" class="p-1.5 bg-slate-800 text-rose-400 rounded-lg text-xs hover:bg-rose-500/20" title="Hapus"><i data-lucide="trash-2" class="w-4 h-4"></i></button>' +
+                    '</td>' +
+                    '</tr>';
+            });
+            body.innerHTML = html;
+            if (window.lucide) window.lucide.createIcons();
+        };
+
+        window.renderP2HHistory = function() {
+            var body = document.getElementById('p2h-history-table-body');
+            var sumContainer = document.getElementById('summary-inspection-list');
+            if (sumContainer) {
+                var sumHtml = '';
+                window.appState.inspections.slice(0, 3).forEach(function(i) {
+                    sumHtml += '<div class="p-2 bg-slate-950/40 rounded-lg flex justify-between items-center"><span class="truncate pr-2">' + i.unitId + '</span><span class="text-emerald-400 font-bold shrink-0">' + i.score + '%</span></div>';
+                });
+                if (window.appState.inspections.length === 0) sumHtml = '<p class="text-slate-500">Belum ada data</p>';
+                sumContainer.innerHTML = sumHtml;
+            }
+
+            if (!body) return;
+            var html = '';
+            window.appState.inspections.forEach(function(item) {
+                var notesVal = item.notes ? item.notes : '-';
+                html += '<tr class="hover:bg-slate-800/40">' +
+                    '<td class="p-3 text-xs text-slate-400">' + item.date + '</td>' +
+                    '<td class="p-3 text-xs text-white font-bold">' + item.unitId + '</td>' +
+                    '<td class="p-3 text-xs text-slate-300">' + item.operator + '</td>' +
+                    '<td class="p-3 text-xs text-emerald-400 font-bold">' + item.score + '% Pass</td>' +
+                    '<td class="p-3 text-xs text-slate-300">' + notesVal + '</td>' +
+                    '<td class="p-3 text-center space-x-1">' +
+                        '<button type="button" onclick="editRecord(\'inspections\', \'' + item.id + '\')" class="p-1.5 bg-slate-800 text-amber-400 rounded-lg hover:bg-amber-500/20" title="Edit"><i data-lucide="edit-3" class="w-4 h-4"></i></button>' +
+                        '<button type="button" onclick="deleteRecord(\'inspections\', \'' + item.id + '\')" class="p-1.5 bg-slate-800 text-rose-400 rounded-lg hover:bg-rose-500/20" title="Hapus"><i data-lucide="trash-2" class="w-4 h-4"></i></button>' +
+                    '</td>' +
+                    '</tr>';
+            });
+            body.innerHTML = html;
+            if (window.lucide) window.lucide.createIcons();
+        };
+
+        window.renderCommissioningSummary = function() {
+            var sumContainer = document.getElementById('summary-commissioning-list');
+            var body = document.getElementById('commissioning-table-body');
+            if (sumContainer) {
+                var sumHtml = '';
+                window.appState.commissioning.slice(0, 3).forEach(function(c) {
+                    sumHtml += '<div class="p-2 bg-slate-950/40 rounded-lg flex justify-between items-center"><span class="truncate pr-2">' + c.unitId + '</span><span class="text-teal-400 font-bold text-[10px] shrink-0">' + c.status + '</span></div>';
+                });
+                if (window.appState.commissioning.length === 0) sumHtml = '<p class="text-slate-500">Belum ada data</p>';
+                sumContainer.innerHTML = sumHtml;
+            }
+            if (!body) return;
+            var html = '';
+            window.appState.commissioning.forEach(function(c) {
+                var findingsVal = c.findings ? c.findings : '-';
+                var badgeColor = 'bg-emerald-500/20 text-emerald-400';
+                if (c.status === 'Tidak Lulus') badgeColor = 'bg-rose-500/20 text-rose-400';
+                else if (c.status === 'Open') badgeColor = 'bg-amber-500/20 text-amber-400';
+                else if (c.status === 'Closed') badgeColor = 'bg-sky-500/20 text-sky-400';
+
+                html += '<tr class="hover:bg-slate-800/40">' +
+                    '<td class="p-3 text-xs text-white font-bold">' + c.unitId + ' (' + c.serial + ')</td>' +
+                    '<td class="p-3 text-xs text-amber-400">' + c.category + '</td>' +
+                    '<td class="p-3 text-xs text-slate-300">' + c.owner + '</td>' +
+                    '<td class="p-3 text-xs text-slate-300">' + findingsVal + '</td>' +
+                    '<td class="p-3 text-xs"><span class="px-2 py-1 rounded-full font-bold ' + badgeColor + '">' + c.status + '</span></td>' +
+                    '<td class="p-3 text-center space-x-1">' +
+                        '<button type="button" onclick="editRecord(\'commissioning\', \'' + c.id + '\')" class="p-1.5 bg-slate-800 text-amber-400 rounded-lg hover:bg-amber-500/20" title="Edit"><i data-lucide="edit-3" class="w-4 h-4"></i></button>' +
+                        '<button type="button" onclick="deleteRecord(\'commissioning\', \'' + c.id + '\')" class="p-1.5 bg-slate-800 text-rose-400 rounded-lg hover:bg-rose-500/20" title="Hapus"><i data-lucide="trash-2" class="w-4 h-4"></i></button>' +
+                    '</td>' +
+                    '</tr>';
+            });
+            body.innerHTML = html;
+            if (window.lucide) window.lucide.createIcons();
+        };
+
+        window.renderDocumentVault = function() {
+            var container = document.getElementById('document-cards-container');
+            var sumContainer = document.getElementById('summary-document-list');
+            if (sumContainer) {
+                var sumHtml = '';
+                window.appState.documents.slice(0, 3).forEach(function(d) {
+                    sumHtml += '<div class="p-2 bg-slate-950/40 rounded-lg flex justify-between items-center"><span class="truncate pr-2">' + d.title + '</span><span class="text-emerald-400 text-[10px] shrink-0">' + d.category + '</span></div>';
+                });
+                if (window.appState.documents.length === 0) sumHtml = '<p class="text-slate-500">Belum ada dokumen</p>';
+                sumContainer.innerHTML = sumHtml;
+            }
+
+            if (!container) return;
+            var html = '';
+            window.appState.documents.forEach(function(d) {
+                html += '<div class="bg-slate-900/80 border border-slate-800 p-5 rounded-2xl flex flex-col justify-between space-y-4">' +
+                    '<div><span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500/10 text-amber-400">' + d.category + '</span><h4 class="font-bold text-slate-100 text-sm mt-2">' + d.title + '</h4><p class="text-[11px] text-slate-400 mt-1">Tanggal: ' + d.date + '</p></div>' +
+                    '<div class="pt-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">' +
+                        '<span>' + d.fileSize + '</span>' +
+                        '<div class="space-x-1">' +
+                            '<button type="button" onclick="viewDocument(\'' + d.title + '\')" class="px-2.5 py-1 bg-sky-500/20 text-sky-400 hover:bg-sky-500/30 rounded-lg font-bold">Lihat</button>' +
+                            '<button type="button" onclick="downloadDocument(\'' + d.title + '\')" class="px-2.5 py-1 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 rounded-lg font-bold">Download</button>' +
+                            '<button type="button" onclick="deleteRecord(\'documents\', \'' + d.id + '\')" class="p-1 bg-slate-800 text-rose-400 rounded-lg hover:bg-rose-500/20" title="Hapus"><i data-lucide="trash-2" class="w-4 h-4"></i></button>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+            });
+            container.innerHTML = html;
+            if (window.lucide) window.lucide.createIcons();
+        };
+
+        window.viewDocument = function(title) {
+            window.showToast('Membuka pratinjau dokumen: ' + title);
+        };
+
+        window.downloadDocument = function(title) {
+            window.showToast('Mengunduh file dokumen: ' + title);
+        };
+
+        window.renderSimperTable = function() {
+            var body = document.getElementById('simper-table-body');
+            var sumContainer = document.getElementById('summary-simper-list');
+            if (sumContainer) {
+                var sumHtml = '';
+                window.appState.simper.slice(0, 3).forEach(function(s) {
+                    sumHtml += '<div class="p-2 bg-slate-950/40 rounded-lg flex justify-between items-center"><span class="truncate pr-2">' + s.name + '</span><span class="text-purple-400 font-bold text-[10px] shrink-0">' + s.type + '</span></div>';
+                });
+                if (window.appState.simper.length === 0) sumHtml = '<p class="text-slate-500">Belum ada data</p>';
+                sumContainer.innerHTML = sumHtml;
+            }
+
+            if (!body) return;
+            var html = '';
+            window.appState.simper.forEach(function(item) {
+                html += '<tr class="hover:bg-slate-800/40">' +
+                    '<td class="p-3 text-xs text-white font-bold">' + item.name + '<br><span class="text-[10px] text-slate-400 font-normal">' + item.nik + '</span></td>' +
+                    '<td class="p-3 text-xs text-slate-300">' + item.dept + '</td>' +
+                    '<td class="p-3 text-xs text-amber-400">' + item.type + '</td>' +
+                    '<td class="p-3 text-xs text-slate-200">' + item.expiryDate + '</td>' +
+                    '<td class="p-3 text-center space-x-1">' +
+                        '<button type="button" onclick="editRecord(\'simper\', \'' + item.id + '\')" class="p-1.5 bg-slate-800 text-amber-400 rounded-lg text-xs hover:bg-amber-500/20" title="Edit"><i data-lucide="edit-3" class="w-4 h-4"></i></button>' +
+                        '<button type="button" onclick="deleteRecord(\'simper\', \'' + item.id + '\')" class="p-1.5 bg-slate-800 text-rose-400 rounded-lg hover:bg-rose-500/20" title="Hapus"><i data-lucide="trash-2" class="w-4 h-4"></i></button>' +
+                    '</td>' +
+                    '</tr>';
+            });
+            body.innerHTML = html;
+            if (window.lucide) window.lucide.createIcons();
+        };
+
+        window.renderCompetencyTable = function() {
+            var body = document.getElementById('competency-table-body');
+            var sumContainer = document.getElementById('summary-competency-list');
+            if (sumContainer) {
+                var sumHtml = '';
+                window.appState.competencies.slice(0, 3).forEach(function(c) {
+                    sumHtml += '<div class="p-2 bg-slate-950/40 rounded-lg flex justify-between items-center"><span class="truncate pr-2">' + c.name + '</span><span class="text-amber-300 text-[10px] shrink-0">' + c.category + '</span></div>';
+                });
+                if (window.appState.competencies.length === 0) sumHtml = '<p class="text-slate-500">Belum ada data</p>';
+                sumContainer.innerHTML = sumHtml;
+            }
+
+            if (!body) return;
+            var html = '';
+            window.appState.competencies.forEach(function(item) {
+                html += '<tr class="hover:bg-slate-800/40">' +
+                    '<td class="p-3 text-xs text-white font-bold">' + item.name + '<br><span class="text-[10px] text-slate-400 font-normal">' + item.nik + '</span></td>' +
+                    '<td class="p-3 text-xs text-amber-400 font-bold">' + (item.certNo || '-') + '</td>' +
+                    '<td class="p-3 text-xs text-slate-200">' + item.category + '</td>' +
+                    '<td class="p-3 text-xs text-slate-300">' + item.issuer + '</td>' +
+                    '<td class="p-3 text-xs text-slate-200">' + item.expiryDate + '</td>' +
+                    '<td class="p-3 text-center space-x-1">' +
+                        '<button type="button" onclick="editRecord(\'competencies\', \'' + item.id + '\')" class="p-1.5 bg-slate-800 text-amber-400 rounded-lg hover:bg-amber-500/20" title="Edit"><i data-lucide="edit-3" class="w-4 h-4"></i></button>' +
+                        '<button type="button" onclick="deleteRecord(\'competencies\', \'' + item.id + '\')" class="p-1.5 bg-slate-800 text-rose-400 rounded-lg hover:bg-rose-500/20" title="Hapus"><i data-lucide="trash-2" class="w-4 h-4"></i></button>' +
+                    '</td>' +
+                    '</tr>';
+            });
+            body.innerHTML = html;
+            if (window.lucide) window.lucide.createIcons();
+        };
+
+        window.renderEnvironmentTable = function() {
+            var body = document.getElementById('env-water-table-body');
+            var sumContainer = document.getElementById('summary-environment-list');
+            if (sumContainer) {
+                var sumHtml = '';
+                window.appState.environment.slice(0, 3).forEach(function(e) {
+                    sumHtml += '<div class="p-2 bg-slate-950/40 rounded-lg flex justify-between items-center"><span class="truncate pr-2">' + e.pond + ' (pH: ' + e.ph + ')</span><span class="text-teal-400 font-bold text-[10px] shrink-0">' + e.status + '</span></div>';
+                });
+                if (window.appState.environment.length === 0) sumHtml = '<p class="text-slate-500">Belum ada data</p>';
+                sumContainer.innerHTML = sumHtml;
+            }
+
+            if (!body) return;
+            var html = '';
+            window.appState.environment.forEach(function(item) {
+                var feVal = item.fe !== undefined ? item.fe : '-';
+                var mnVal = item.mn !== undefined ? item.mn : '-';
+                html += '<tr class="hover:bg-slate-800/40">' +
+                    '<td class="p-3 text-xs text-white font-bold">' + item.pond + '</td>' +
+                    '<td class="p-3 text-xs text-emerald-400 font-bold">' + item.ph + '</td>' +
+                    '<td class="p-3 text-xs text-sky-400 font-bold">' + item.tss + ' mg/L</td>' +
+                    '<td class="p-3 text-xs text-slate-200">' + feVal + ' mg/L</td>' +
+                    '<td class="p-3 text-xs text-slate-200">' + mnVal + ' mg/L</td>' +
+                    '<td class="p-3 text-xs text-emerald-400 font-semibold">' + item.status + '</td>' +
+                    '<td class="p-3 text-center space-x-1">' +
+                        '<button type="button" onclick="editRecord(\'environment\', \'' + item.id + '\')" class="p-1.5 bg-slate-800 text-amber-400 rounded-lg hover:bg-amber-500/20" title="Edit"><i data-lucide="edit-3" class="w-4 h-4"></i></button>' +
+                        '<button type="button" onclick="deleteRecord(\'environment\', \'' + item.id + '\')" class="p-1.5 bg-slate-800 text-rose-400 rounded-lg hover:bg-rose-500/20" title="Hapus"><i data-lucide="trash-2" class="w-4 h-4"></i></button>' +
+                    '</td>' +
+                    '</tr>';
+            });
+            body.innerHTML = html;
+            if (window.lucide) window.lucide.createIcons();
+        };
+
+        window.renderB3Table = function() {
+            var body = document.getElementById('b3-table-body');
+            var sumContainer = document.getElementById('summary-b3-list');
+            if (sumContainer) {
+                var sumHtml = '';
+                window.appState.b3waste.slice(0, 3).forEach(function(b) {
+                    sumHtml += '<div class="p-2 bg-slate-950/40 rounded-lg flex justify-between items-center"><span class="truncate pr-2">' + b.type + '</span><span class="text-rose-400 font-bold text-[10px] shrink-0">' + b.weight + ' Kg</span></div>';
+                });
+                if (window.appState.b3waste.length === 0) sumHtml = '<p class="text-slate-500">Belum ada data</p>';
+                sumContainer.innerHTML = sumHtml;
+            }
+            if (!body) return;
+            var html = '';
+            window.appState.b3waste.forEach(function(item) {
+                html += '<tr class="hover:bg-slate-800/40">' +
+                    '<td class="p-3 text-xs text-white font-bold">' + item.type + '</td>' +
+                    '<td class="p-3 text-xs text-slate-300">' + item.source + '</td>' +
+                    '<td class="p-3 text-xs text-amber-400">' + item.flow + '</td>' +
+                    '<td class="p-3 text-xs text-rose-400 font-bold">' + item.weight + ' Kg</td>' +
+                    '<td class="p-3 text-center space-x-1">' +
+                        '<button type="button" onclick="editRecord(\'b3waste\', \'' + item.id + '\')" class="p-1.5 bg-slate-800 text-amber-400 rounded-lg hover:bg-amber-500/20" title="Edit"><i data-lucide="edit-3" class="w-4 h-4"></i></button>' +
+                        '<button type="button" onclick="deleteRecord(\'b3waste\', \'' + item.id + '\')" class="p-1.5 bg-slate-800 text-rose-400 rounded-lg hover:bg-rose-500/20" title="Hapus"><i data-lucide="trash-2" class="w-4 h-4"></i></button>' +
+                    '</td>' +
+                    '</tr>';
+            });
+            body.innerHTML = html;
+            if (window.lucide) window.lucide.createIcons();
+        };
+
+        window.renderIncidentTable = function() {
+            var body = document.getElementById('incident-table-body');
+            var sumContainer = document.getElementById('summary-incident-list');
+            
+            var fatCount = 0, ltiCount = 0, mtiCount = 0, facCount = 0, propCount = 0;
+            window.appState.incidents.forEach(function(i) {
+                var sev = (i.severity || '').toLowerCase();
+                if (sev.includes('fatality')) fatCount++;
+                else if (sev.includes('lti') || sev.includes('lost time')) ltiCount++;
+                else if (sev.includes('mti') || sev.includes('medical')) mtiCount++;
+                else if (sev.includes('fac') || sev.includes('first aid')) facCount++;
+                else if (sev.includes('property') || sev.includes('damage')) propCount++;
+            });
+
+            var fEl = document.getElementById('perf-fatality');
+            var lEl = document.getElementById('perf-lti');
+            var mEl = document.getElementById('perf-mti');
+            var fcEl = document.getElementById('perf-fac');
+            var pEl = document.getElementById('perf-prop');
+
+            if (fEl) fEl.innerText = fatCount;
+            if (lEl) lEl.innerText = ltiCount;
+            if (mEl) mEl.innerText = mtiCount;
+            if (fcEl) fcEl.innerText = facCount;
+            if (pEl) pEl.innerText = propCount;
+
+            if (sumContainer) {
+                var sumHtml = '';
+                window.appState.incidents.slice(0, 3).forEach(function(i) {
+                    sumHtml += '<div class="p-2 bg-slate-950/40 rounded-lg flex justify-between items-center"><span class="truncate pr-2">' + i.location + '</span><span class="text-red-400 text-[10px] font-bold shrink-0">' + i.severity + '</span></div>';
+                });
+                if (window.appState.incidents.length === 0) sumHtml = '<p class="text-slate-500">Belum ada insiden</p>';
+                sumContainer.innerHTML = sumHtml;
+            }
+
+            if (!body) return;
+            var html = '';
+            window.appState.incidents.forEach(function(item) {
+                html += '<tr class="hover:bg-slate-800/40">' +
+                    '<td class="p-3 text-xs text-white font-bold">' + item.location + '</td>' +
+                    '<td class="p-3 text-xs text-rose-400 font-bold">' + item.severity + '</td>' +
+                    '<td class="p-3 text-xs text-slate-300">' + item.summary + '</td>' +
+                    '<td class="p-3 text-center space-x-1">' +
+                        '<button type="button" onclick="editRecord(\'incidents\', \'' + item.id + '\')" class="p-1.5 bg-slate-800 text-amber-400 rounded-lg hover:bg-amber-500/20" title="Edit"><i data-lucide="edit-3" class="w-4 h-4"></i></button>' +
+                        '<button type="button" onclick="deleteRecord(\'incidents\', \'' + item.id + '\')" class="p-1.5 bg-slate-800 text-rose-400 rounded-lg hover:bg-rose-500/20" title="Hapus"><i data-lucide="trash-2" class="w-4 h-4"></i></button>' +
+                    '</td>' +
+                    '</tr>';
+            });
+            body.innerHTML = html;
+            if (window.lucide) window.lucide.createIcons();
+        };
+
+        window.renderSafetalkTable = function() {
+            var body = document.getElementById('safetalk-table-body');
+            var badge = document.getElementById('badge-safetalk-count');
+            if (badge) badge.innerText = window.appState.safetalks.length;
+
+            var totalS = window.appState.safetalks.length;
+            var totalA = 0;
+            var typeCounts = { 'P5M (Pengawasan 5 Menit)': 0, 'Safety Talk': 0, 'Safety Meeting Bulanan': 0 };
+
+            window.appState.safetalks.forEach(function(s) { 
+                totalA += (parseInt(s.attendees, 10) || 0);
+                if (typeCounts[s.type] !== undefined) typeCounts[s.type]++;
+                else typeCounts[s.type] = 1;
+            });
+
+            var elTot = document.getElementById('stat-st-total');
+            var elAtt = document.getElementById('stat-st-attendees');
+            var elAvg = document.getElementById('stat-st-average');
+
+            if (elTot) elTot.innerText = totalS;
+            if (elAtt) elAtt.innerText = totalA.toLocaleString();
+            if (elAvg) elAvg.innerText = totalS > 0 ? Math.round(totalA / totalS) : 0;
+
+            var perfStats = document.getElementById('perf-safetalk-stats');
+            if (perfStats) {
+                var pHtml = '';
+                for (var key in typeCounts) {
+                    pHtml += '<div class="bg-slate-950/40 p-4 rounded-xl border border-slate-800">' +
+                        '<p class="text-xs text-slate-400 font-medium">' + key + '</p>' +
+                        '<h5 class="text-xl font-black text-amber-400 mt-1">' + typeCounts[key] + ' <span class="text-xs text-slate-400 font-normal">Sesi</span></h5>' +
+                        '</div>';
+                }
+                perfStats.innerHTML = pHtml;
+            }
+
+            if (!body) return;
+            var html = '';
+            window.appState.safetalks.forEach(function(item) {
+                html += '<tr class="hover:bg-slate-800/40">' +
+                    '<td class="p-3 text-xs text-slate-300">' + item.date + '</td>' +
+                    '<td class="p-3 text-xs text-amber-400 font-semibold">' + item.type + '</td>' +
+                    '<td class="p-3 text-xs text-white font-bold">' + item.topic + '</td>' +
+                    '<td class="p-3 text-xs text-slate-300">' + item.leader + '</td>' +
+                    '<td class="p-3 text-xs text-emerald-400 font-bold">' + item.attendees + ' Orang</td>' +
+                    '<td class="p-3 text-center space-x-1">' +
+                        '<button type="button" onclick="editRecord(\'safetalks\', \'' + item.id + '\')" class="p-1.5 bg-slate-800 text-amber-400 rounded-lg hover:bg-amber-500/20" title="Edit"><i data-lucide="edit-3" class="w-4 h-4"></i></button>' +
+                        '<button type="button" onclick="deleteRecord(\'safetalks\', \'' + item.id + '\')" class="p-1.5 bg-slate-800 text-rose-400 rounded-lg hover:bg-rose-500/20" title="Hapus"><i data-lucide="trash-2" class="w-4 h-4"></i></button>' +
+                    '</td>' +
+                    '</tr>';
+            });
+            body.innerHTML = html;
+            if (window.lucide) window.lucide.createIcons();
+        };
+
+        window.renderManpowerTable = function() {
+            var body = document.getElementById('manpower-table-body');
+            if (!body) return;
+            var html = '';
+            window.appState.manpower.forEach(function(item) {
+                html += '<tr class="hover:bg-slate-800/40">' +
+                    '<td class="p-3 text-xs text-slate-300">' + item.date + '</td>' +
+                    '<td class="p-3 text-xs text-white font-bold">' + item.desc + '</td>' +
+                    '<td class="p-3 text-xs text-amber-400 font-black">' + item.totalHours.toLocaleString() + ' Jam</td>' +
+                    '<td class="p-3 text-center space-x-1">' +
+                        '<button type="button" onclick="editRecord(\'manpower\', \'' + item.id + '\')" class="p-1.5 bg-slate-800 text-amber-400 rounded-lg hover:bg-amber-500/20" title="Edit"><i data-lucide="edit-3" class="w-4 h-4"></i></button>' +
+                        '<button type="button" onclick="deleteRecord(\'manpower\', \'' + item.id + '\')" class="p-1.5 bg-slate-800 text-rose-400 rounded-lg hover:bg-rose-500/20" title="Hapus"><i data-lucide="trash-2" class="w-4 h-4"></i></button>' +
+                    '</td>' +
+                    '</tr>';
+            });
+            body.innerHTML = html;
+            if (window.lucide) window.lucide.createIcons();
+        };
+
+        window.refreshAllViews = function() {
+            window.renderHazardTable();
+            window.renderP2HHistory();
+            window.renderCommissioningSummary();
+            window.renderDocumentVault();
+            window.renderSimperTable();
+            window.renderCompetencyTable();
+            window.renderEnvironmentTable();
+            window.renderB3Table();
+            window.renderIncidentTable();
+            window.renderSafetalkTable();
+            window.renderManpowerTable();
+            window.updateDashboardKPIs();
+            if (typeof window.initCharts === 'function') window.initCharts();
+        };
+
+        window.updateDashboardKPIs = function() {
+            var totalManHours = 0;
+            window.appState.manpower.forEach(function(m) { totalManHours += m.totalHours; });
+            var mhEl = document.getElementById('dash-stat-manhours');
+            if (mhEl) mhEl.innerText = totalManHours.toLocaleString() + ' Jam';
+
+            var hzEl = document.getElementById('dash-stat-hazards');
+            if (hzEl) hzEl.innerText = window.appState.hazards.length;
+
+            var inspEl = document.getElementById('dash-stat-inspections');
+            if (inspEl) inspEl.innerText = window.appState.inspections.length;
+
+            var docEl = document.getElementById('dash-stat-docs');
+            if (docEl) docEl.innerText = window.appState.documents.length;
+        };
+
+        window.deleteRecord = function(collectionName, id) {
+            if (confirm('Hapus data record ini?')) {
+                window.appState[collectionName] = (window.appState[collectionName] || []).filter(function(i) { return i.id !== id; });
+                window.refreshAllViews();
+                window.showToast('Data berhasil dihapus');
+            }
+        };
+
+        window.editRecord = function(collectionName, id) {
+            var item = (window.appState[collectionName] || []).find(function(i) { return i.id === id; });
+            if (!item) return;
+
+            if (collectionName === 'hazards') {
+                document.getElementById('hazard-reporter').value = item.reporter || '';
+                document.getElementById('hazard-location').value = item.location || '';
+                document.getElementById('hazard-desc').value = item.desc || '';
+                window.openModal('modal-peka');
+            } else if (collectionName === 'inspections') {
+                document.getElementById('p2h-unit').value = item.unitId || '';
+                document.getElementById('p2h-operator').value = item.operator || '';
+                document.getElementById('p2h-score').value = item.score || 90;
+                document.getElementById('p2h-notes').value = item.notes || '';
+                window.openModal('modal-p2h');
+            } else if (collectionName === 'commissioning') {
+                document.getElementById('comm-unit').value = item.unitId || '';
+                document.getElementById('comm-serial').value = item.serial || '';
+                document.getElementById('comm-owner').value = item.owner || '';
+                document.getElementById('comm-findings').value = item.findings || '';
+                document.getElementById('comm-status').value = item.status || 'Lulus';
+                window.openModal('modal-commissioning-add');
+            } else if (collectionName === 'simper') {
+                document.getElementById('simper-name').value = item.name || '';
+                document.getElementById('simper-nik').value = item.nik || '';
+                document.getElementById('simper-dept').value = item.dept || '';
+                document.getElementById('simper-type').value = item.type || '';
+                document.getElementById('simper-expiry').value = item.expiryDate || '';
+                window.openModal('modal-simper-add');
+            } else if (collectionName === 'competencies') {
+                document.getElementById('comp-name').value = item.name || '';
+                document.getElementById('comp-nik').value = item.nik || '';
+                document.getElementById('comp-cert').value = item.certNo || '';
+                document.getElementById('comp-category').value = item.category || '';
+                document.getElementById('comp-issuer').value = item.issuer || '';
+                document.getElementById('comp-expiry').value = item.expiryDate || '';
+                window.openModal('modal-competency-add');
+            } else if (collectionName === 'environment') {
+                document.getElementById('env-pond').value = item.pond || '';
+                document.getElementById('env-ph').value = item.ph || 7.0;
+                document.getElementById('env-tss').value = item.tss || 50;
+                document.getElementById('env-fe').value = item.fe !== undefined ? item.fe : 0.5;
+                document.getElementById('env-mn').value = item.mn !== undefined ? item.mn : 0.2;
+                window.openModal('modal-env-input');
+            } else if (collectionName === 'b3waste') {
+                document.getElementById('b3-type').value = item.type || '';
+                document.getElementById('b3-source').value = item.source || '';
+                document.getElementById('b3-flow').value = item.flow || 'Masuk TPS';
+                document.getElementById('b3-weight').value = item.weight || 0;
+                window.openModal('modal-b3-add');
+            } else if (collectionName === 'incidents') {
+                document.getElementById('inc-location').value = item.location || '';
+                document.getElementById('inc-severity').value = item.severity || 'Property Damage';
+                document.getElementById('inc-summary').value = item.summary || '';
+                window.openModal('modal-incident-add');
+            } else if (collectionName === 'safetalks') {
+                document.getElementById('st-type').value = item.type || 'Safety Talk';
+                document.getElementById('st-date').value = item.date || '';
+                document.getElementById('st-topic').value = item.topic || '';
+                document.getElementById('st-leader').value = item.leader || '';
+                document.getElementById('st-attendees').value = item.attendees || 10;
+                window.openModal('modal-safetalk-add');
+            } else if (collectionName === 'manpower') {
+                document.getElementById('mp-date').value = item.date || '';
+                document.getElementById('mp-desc').value = item.desc || '';
+                document.getElementById('mp-hours').value = item.totalHours || 0;
+                window.openModal('modal-manpower-add');
+            }
+            window.deleteRecord(collectionName, id);
+        };
+
+        window.handleHazardSubmit = function(e) {
+            e.preventDefault();
+            window.appState.hazards.unshift({
+                id: 'PEKA-' + Math.floor(100 + Math.random() * 900),
+                reporter: document.getElementById('hazard-reporter').value,
+                date: new Date().toISOString().split('T')[0],
+                location: document.getElementById('hazard-location').value,
+                desc: document.getElementById('hazard-desc').value,
+                risk: 'High',
+                status: 'Open'
+            });
+            window.refreshAllViews();
+            window.closeModal('modal-peka');
+            window.showToast('Lapor Bahaya berhasil disimpan');
+            e.target.reset();
+        };
+
+        window.handleP2HSubmit = function(e) {
+            e.preventDefault();
+            window.appState.inspections.unshift({
+                id: 'INSP-' + Math.floor(100 + Math.random() * 900),
+                unitId: document.getElementById('p2h-unit').value,
+                operator: document.getElementById('p2h-operator').value,
+                date: new Date().toISOString().split('T')[0],
+                score: parseInt(document.getElementById('p2h-score').value, 10) || 100,
+                notes: document.getElementById('p2h-notes').value,
+                status: 'Pass'
+            });
+            window.refreshAllViews();
+            window.closeModal('modal-p2h');
+            window.showToast('Inspeksi area kerja berhasil disimpan');
+            e.target.reset();
+        };
+
+        window.handleCommissioningSubmit = function(e) {
+            e.preventDefault();
+            window.appState.commissioning.unshift({
+                id: 'COMM-' + Math.floor(100 + Math.random() * 900),
+                unitId: document.getElementById('comm-unit').value,
+                serial: document.getElementById('comm-serial').value,
+                category: 'Heavy Equipment',
+                owner: document.getElementById('comm-owner').value,
+                findings: document.getElementById('comm-findings').value,
+                status: document.getElementById('comm-status').value || 'Lulus'
+            });
+            window.refreshAllViews();
+            window.closeModal('modal-commissioning-add');
+            window.showToast('Komisioning unit berhasil disimpan');
+            e.target.reset();
+        };
+
+        window.handleDocSubmit = function(e) {
+            e.preventDefault();
+            var title = document.getElementById('doc-title').value;
+            var category = document.getElementById('doc-category').value;
+            var fileInput = document.getElementById('doc-file');
+            var fileSize = (fileInput && fileInput.files && fileInput.files[0]) ? (fileInput.files[0].size / (1024*1024)).toFixed(1) + ' MB' : (category === 'Direktori' ? 'Folder' : '1.5 MB');
+
+            window.appState.documents.unshift({
+                id: 'DOC-' + Math.floor(100 + Math.random() * 900),
+                title: title,
+                category: category,
+                date: new Date().toISOString().split('T')[0],
+                fileSize: fileSize
+            });
+            window.refreshAllViews();
+            window.closeModal('modal-doc-upload');
+            window.showToast('Dokumen berhasil diupload');
+            e.target.reset();
+        };
+
+        window.handleSimperSubmit = function(e) {
+            e.preventDefault();
+            window.appState.simper.unshift({
+                id: 'SMP-' + Math.floor(100 + Math.random() * 900),
+                name: document.getElementById('simper-name').value,
+                nik: document.getElementById('simper-nik').value,
+                dept: document.getElementById('simper-dept').value,
+                type: document.getElementById('simper-type').value,
+                expiryDate: document.getElementById('simper-expiry').value
+            });
+            window.refreshAllViews();
+            window.closeModal('modal-simper-add');
+            window.showToast('SIMPER berhasil disimpan');
+            e.target.reset();
+        };
+
+        window.handleCompetencySubmit = function(e) {
+            e.preventDefault();
+            window.appState.competencies.unshift({
+                id: 'CMP-' + Math.floor(100 + Math.random() * 900),
+                name: document.getElementById('comp-name').value,
+                nik: document.getElementById('comp-nik').value,
+                certNo: document.getElementById('comp-cert').value,
+                category: document.getElementById('comp-category').value,
+                issuer: document.getElementById('comp-issuer').value,
+                expiryDate: document.getElementById('comp-expiry').value
+            });
+            window.refreshAllViews();
+            window.closeModal('modal-competency-add');
+            window.showToast('Sertifikat kompetensi berhasil disimpan');
+            e.target.reset();
+        };
+
+        window.handleEnvironmentSubmit = function(e) {
+            e.preventDefault();
+            var ph = parseFloat(document.getElementById('env-ph').value) || 7.0;
+            var fe = parseFloat(document.getElementById('env-fe').value) || 0.0;
+            var mn = parseFloat(document.getElementById('env-mn').value) || 0.0;
+            var tss = parseInt(document.getElementById('env-tss').value, 10) || 50;
+
+            window.appState.environment.unshift({
+                id: 'ENV-' + Math.floor(100 + Math.random() * 900),
+                pond: document.getElementById('env-pond').value,
+                ph: ph,
+                tss: tss,
+                fe: fe,
+                mn: mn,
+                status: (ph >= 6 && ph <= 9 && fe <= 7.0 && mn <= 4.0) ? 'COMPLIANT' : 'NON-COMPLIANT'
+            });
+            window.refreshAllViews();
+            window.closeModal('modal-env-input');
+            window.showToast('Sample air AAT berhasil dicatat');
+            e.target.reset();
+        };
+
+        window.handleB3Submit = function(e) {
+            e.preventDefault();
+            window.appState.b3waste.unshift({
+                id: 'B3-' + Math.floor(100 + Math.random() * 900),
+                type: document.getElementById('b3-type').value,
+                source: document.getElementById('b3-source').value,
+                flow: document.getElementById('b3-flow').value,
+                weight: parseInt(document.getElementById('b3-weight').value, 10) || 0
+            });
+            window.refreshAllViews();
+            window.closeModal('modal-b3-add');
+            window.showToast('Transaksi B3 berhasil disimpan');
+            e.target.reset();
+        };
+
+        window.handleIncidentSubmit = function(e) {
+            e.preventDefault();
+            window.appState.incidents.unshift({
+                id: 'INC-' + Math.floor(100 + Math.random() * 900),
+                location: document.getElementById('inc-location').value,
+                severity: document.getElementById('inc-severity').value,
+                summary: document.getElementById('inc-summary').value,
+                date: new Date().toISOString().split('T')[0]
+            });
+            window.refreshAllViews();
+            window.closeModal('modal-incident-add');
+            window.showToast('Laporan insiden berhasil disimpan');
+            e.target.reset();
+        };
+
+        window.handleSafetalkSubmit = function(e) {
+            e.preventDefault();
+            window.appState.safetalks.unshift({
+                id: 'ST-' + Math.floor(100 + Math.random() * 900),
+                type: document.getElementById('st-type').value,
+                date: document.getElementById('st-date').value || new Date().toISOString().split('T')[0],
+                topic: document.getElementById('st-topic').value,
+                leader: document.getElementById('st-leader').value,
+                attendees: parseInt(document.getElementById('st-attendees').value, 10) || 10
+            });
+            window.refreshAllViews();
+            window.closeModal('modal-safetalk-add');
+            window.showToast('Pelaksanaan safety berhasil dicatat');
+            e.target.reset();
+        };
+
+        window.handleManpowerSubmit = function(e) {
+            e.preventDefault();
+            window.appState.manpower.unshift({
+                id: 'MPH-' + Math.floor(100 + Math.random() * 900),
+                date: document.getElementById('mp-date').value || new Date().toISOString().split('T')[0],
+                desc: document.getElementById('mp-desc').value,
+                totalHours: parseInt(document.getElementById('mp-hours').value, 10) || 0
+            });
+            window.refreshAllViews();
+            window.closeModal('modal-manpower-add');
+            window.showToast('Jam kerja aman berhasil disimpan');
+            e.target.reset();
+        };
+
+        window.initCharts = function() {
+            try {
+                if (typeof Chart === 'undefined') return;
+
+                var months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+                var hazardCounts = new Array(12).fill(0);
+                var incidentCounts = new Array(12).fill(0);
+
+                window.appState.hazards.forEach(function(h) {
+                    if (h.date) {
+                        var m = parseInt(h.date.split('-')[1], 10) - 1;
+                        if (m >= 0 && m < 12) hazardCounts[m]++;
+                    }
+                });
+
+                window.appState.incidents.forEach(function(i) {
+                    if (i.date) {
+                        var m = parseInt(i.date.split('-')[1], 10) - 1;
+                        if (m >= 0 && m < 12) incidentCounts[m]++;
+                    }
+                });
+
+                if (window.appState.hazards.length <= 1) {
+                    hazardCounts[5] = window.appState.hazards.length;
+                }
+
+                var ctx1 = document.getElementById('chart-dashboard-trend');
+                if (ctx1) {
+                    if (window.myChartTrend) window.myChartTrend.destroy();
+                    window.myChartTrend = new Chart(ctx1, {
+                        type: 'line',
+                        data: {
+                            labels: months,
+                            datasets: [
+                                {
+                                    label: 'Laporan Bahaya (PEKA)',
+                                    data: hazardCounts,
+                                    borderColor: '#F59E0B',
+                                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                                    fill: true,
+                                    tension: 0.3
+                                },
+                                {
+                                    label: 'Insiden / Near Miss',
+                                    data: incidentCounts,
+                                    borderColor: '#EF4444',
+                                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                    fill: true,
+                                    tension: 0.3
+                                }
+                            ]
+                        },
+                        options: { 
+                            responsive: true, 
+                            maintainAspectRatio: false,
+                            plugins: { legend: { labels: { color: '#94A3B8' } } }
+                        }
+                    });
+                }
+
+                var b3Map = {};
+                window.appState.b3waste.forEach(function(b) {
+                    var t = b.type || 'Lainnya';
+                    b3Map[t] = (b3Map[t] || 0) + (b.weight || 0);
+                });
+
+                var b3Labels = Object.keys(b3Map);
+                var b3Data = Object.values(b3Map);
+
+                if (b3Labels.length === 0) {
+                    b3Labels = ['Aki Bekas'];
+                    b3Data = [150];
+                }
+
+                var ctx2 = document.getElementById('chart-dashboard-category');
+                if (ctx2) {
+                    if (window.myChartCategory) window.myChartCategory.destroy();
+                    window.myChartCategory = new Chart(ctx2, {
+                        type: 'bar',
+                        data: {
+                            labels: b3Labels,
+                            datasets: [{
+                                label: 'Total Berat (Kg)',
+                                data: b3Data,
+                                backgroundColor: '#F43F5E',
+                                borderRadius: 6
+                            }]
+                        },
+                        options: { 
+                            responsive: true, 
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                x: { ticks: { color: '#94A3B8' }, grid: { color: '#1E293B' } },
+                                y: { ticks: { color: '#94A3B8' }, grid: { color: '#1E293B' } }
+                            }
+                        }
+                    });
+                }
+            } catch (err) {
+                console.error("Error initializing charts:", err);
+            }
+        };
+
+        window.exportDashboardBackup = function() {
+            var dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(window.appState, null, 2));
+            var downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", "BBCsafe_Backup_" + new Date().toISOString().split('T')[0] + ".json");
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            window.showToast('Backup berhasil diunduh');
+        };
+
+        window.importDashboardBackup = function(event) {
+            var file = event.target.files[0];
+            if (!file) return;
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    var parsed = JSON.parse(e.target.result);
+                    if (parsed && typeof parsed === 'object') {
+                        window.appState = parsed;
+                        window.refreshAllViews();
+                        window.showToast('Backup berhasil diimport');
+                    }
+                } catch (err) {
+                    window.showToast('Format file backup tidak valid', 'error');
+                }
+            };
+            reader.readAsText(file);
+        };
+
+        document.addEventListener('DOMContentLoaded', function() {
+            if (window.lucide) window.lucide.createIcons();
+            window.refreshAllViews();
+        });
+    </script>
+</body>
+</html>
